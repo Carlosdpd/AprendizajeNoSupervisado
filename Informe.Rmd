@@ -1,0 +1,451 @@
+---
+title: "Informe"
+author: "Carlos Pires"
+date: "12 de abril de 2016"
+output: html_document
+---
+
+El presente documento, hace el papel de informe de la tarea 3 de la matería Minería De Datos, impartida en la Universidad Central de Venezuela. A continuación, se presentarán una serie de sets de datos a los cuales se les aplicaron métodos vistos en clases con la finalidad de comprender su funcionamiento y observando en qué casos unos de desempeñan mejores que otros para poder así tomar decisiones prudentes a la hora de buscar clusters en dichos sets de datos.
+
+Nota: No se muestran los procesos de TODOS los métodos utilizados para poder encontrar los clusters adecuados, en la mayoría de los datasets se utiliza el que mejor se comportó. Esto realiza con la finalidad de ser más directo con los resultados de los algoritmos.
+
+Lo primero que hacemos es instalar el paquete scatterplot3d para poder realizar gráficas en 3D que nos serán útiles más adelante.
+De igual manera accedemos al directorio de trabajo en el cual estan nuestros archivos de interés.
+
+```{r}
+library(scatterplot3d)
+setwd("C:\\Users\\Carlos\\Desktop\\Universidad\\Mineria\\AprendizajeNoSupervisado-master")
+```
+
+**Dataset a.csv**
+
+```{r}
+
+dataset_a = read.csv(file = "a.csv", header = F)
+
+head(dataset_a)
+```
+
+Cargamos el dataset y observamos el head para darnos cuenta que el V3 corresponde a las clases de este dataset
+
+```{r}
+table(dataset_a$V3)
+
+dataset_a[dataset_a == 0] = 3
+
+```
+
+Al principio observamos que hay 1000 elementos de la clase 0, como el 0 está asociado al color blanco, realizamos un reemplazo de todos los 0 por el elemento 3, de esa manera podremos identificar mejor los clusters con el color asociado al número 3.
+
+```{r}
+table(dataset_a$V3)
+```
+
+Procedemos a graficar el primer dataset, utilizando los colores de la columna clase:
+
+```{r}
+plot(x=dataset_a$V1, y=dataset_a$V2, col= dataset_a$V3)
+```
+
+Podemos observar claramente 3 clusters aglomerados. A partir de allí, comenzamos con el uso del método de k-medias
+
+```{r}
+kmedias_a = kmeans(x = dataset_a, centers = 3)
+```
+
+Y luego procedemos a observar el resultado:
+
+```{r}
+plot(x=dataset_a$V1, y=dataset_a$V2, col= kmedias_a$cluster)
+```
+
+Si bien es cierto que los colores no son los mismos para cada cluster, esto se debe a la arbietraridad con la que el lenguaje R asocia los colores a los clusters encontrados. Podemos observar que el algoritmo encuentra perfectamente los clusters definidos. Solo que le asocia colores distintos.
+
+Obsevamos la matriz de confusión:
+
+```{r}
+table(kmedias_a$cluster, dataset_a$V3)
+```
+
+Como fue menciado anteriormente, debido a que R asigna los colores de una manera distinta, la matriz de confusión nos muestra un resultado que puede parecer extraño, pero categoriza con el mínimo error a nuestros clusters (Sólo 1 error en 3000 elementos)
+
+**Dataset a_big.csv**
+
+**Dataset guess.csv**
+
+Lo primero en hacer será cargar el dataset y luego se realiza un plot para poder estudiarlo graficamente
+```{r}
+dataset_guess = read.csv(file = "guess.csv", header = F)
+
+plot(dataset_guess)
+```
+
+Podemos observar datos aglomerados en el dataset, sin embargo, convendría utilizar el método del codo de Jambu para encontrar en número adecuado de clusters a buscar en este dataset
+
+```{r}
+InerciaIC.Hartigan = rep(0, 30)
+for (k in 1:30) {
+  grupos = kmeans(dataset_guess, k, iter.max = 100, algorithm = "Hartigan-Wong")
+  InerciaIC.Hartigan[k] = grupos$tot.withinss
+}
+plot(InerciaIC.Hartigan, col = "blue", type = "b")
+```
+
+Luego de la aplicación del método del codo de Jambu, podemos observar que la pendiente más pronunciada de la gráfica se encuentra entre 2 y 3 clusters, lo que sugiere que 2 sería el número ideal de clusters en este dataset.
+
+Procedemos a aplicar el método de k-medias, utilizando 2 clusters:
+
+```{r}
+kmedias_guess = kmeans( x = dataset_guess, center = 2)
+
+plot(x = dataset_guess$V1, y = dataset_guess$V2, col = kmedias_guess$cluster)
+```
+
+Podemos ver que efectivamente, 2 es el número adecuado para representar este sed de datos.
+
+**Dataset moon.csv**
+
+Cargamos el dataset y los graficamos para estudiarlo con detenimiento
+
+```{r}
+dataset_moon = read.csv(file = "moon.csv", header = F)
+
+plot(dataset_moon$V1, dataset_moon$V2)
+```
+
+En una primera instancia, se utilizó el método de k medias para intentar categorizar este dataset, sin embargo, no resultó muy bien debido a la forma del mismo. Observamos en el laboratio que k medias se comporta mucho mejor para datasets circulares o cilíndricos como el dataset a.csv. Por esta razón, se procede a utilizar el método de h clust.
+
+En una primera instancia, procedemos a modificar la matriz, remover su vector clase, y luego encontrar la matriz de distancia de la misma.
+
+```{r}
+entrada_moon = dataset_moon
+
+entrada_moon$V3 = NULL
+
+entrada_moon = as.matrix(entrada_moon)
+
+distancia_moon = dist(entrada_moon)
+```
+
+Luego que tenemos estos datos. Procedemos a aplicar el método.
+En una primera instancia se utilizó como método, el método por defecto del algoritmo hclust, dando como resultado una aproximación mala a las clases que posee este set de datos, como vimos en clases, el mejor método para la forma de este dataset, en el método 'single' para aglomerar los datos. Se procede a utilizar el método hclust con el método 'single'
+
+```{r}
+cluster_moon = hclust(distancia_moon, method = 'single')
+```
+
+Realizamos el método y observamos el cluster generado
+
+```{r}
+plot(cluster_moon)
+```
+
+Podemos ver que 2 grandes clases separan al dataset, a partir de esa información, realizamos un corte en el árbol con el uso de la función cutre, con un k = 2 puesto que es el número de clases que observamos.
+
+```{r}
+corte_moon = cutree(cluster_moon, k = 2)
+
+head(corte_moon)
+#Observamos que efectivamente el corte nos deja ambas clases
+
+plot(x = dataset_moon$V1, y = dataset_moon$V2, col = corte_moon)
+```
+
+Finalmente observamos como el método single aglomera los dos grupos de manera exitosa.
+
+```{r}
+table(dataset_moon$V3, corte_moon)
+```
+
+**Dataset h.csv**
+
+Cargamos el dataset y lo graficamos.
+
+```{r}
+dataset_h = read.csv(file = "h.csv", header = F)
+
+plot(dataset_h)
+``` 
+
+Observamos que este dataset está en 3 dimensiones. También observamos que la columna clase contiene valores reales, a continuación pasaremos a convertir los valores reales a enteros utilizando intervalos para entender mejor las clases.
+```{r}
+dataset_h$V4[dataset_h$V4 < 7] = 1
+
+dataset_h$V4[dataset_h$V4 > 7 & dataset_h$V4 < 10] = 2
+
+dataset_h$V4[dataset_h$V4 > 10 & dataset_h$V4 < 12] = 3
+
+dataset_h$V4[dataset_h$V4 > 12] = 4
+```
+
+Lo dividimos en 4 clases, pero es un valor arbitrario, pudieron haber sido 3,5,6 o cualquier número.
+Verificamos que nuestra transformación se haya realizado de manera exitosa.
+```{r}
+unique(dataset_h$V4)
+```
+
+Ahora pasaremos a graficas de distantas maneras el dataset para comprenderlo mejor.
+
+```{r}
+plot(dataset_h$V1, dataset_h$V2, col= dataset_h$V4)
+
+plot(dataset_h$V1, dataset_h$V3, col= dataset_h$V4)
+
+plot(dataset_h$V2, dataset_h$V3, col= dataset_h$V4)
+```
+
+Podemos observar que tiene un comportamiento como el de una espiral. Finalmente hacemos un ploteo en 3 dimensiones
+
+```{r}
+scatterplot3d(dataset_h$V1, dataset_h$V2, dataset_h$V3, highlight.3d = TRUE)
+```
+
+Procedemos a aplicar el método de k medias
+
+```{r}
+kmedias_h = kmeans(dataset_h, centers = 4)
+
+plot(dataset_h$V1, dataset_h$V3, col= kmedias_h$cluster)
+
+points(x = kmedias_h$centers, col = 1:4, pch = 19, cex = 3)
+```
+
+Podemos observar que este método no funciona bien para este dataset en 3 dimensiones puesto que la forma en que están distribuidos los datos no logra que el algoritmo pueda concretar alguna aglomeración correcta. Comprobamos que el algoritmo falla con la matriz de confusión
+
+```{r}
+table(dataset_h$V4, kmedias_h$cluster)
+```
+
+Pasaremos a intentar otro método para observar si este logra funcionar.
+Hacemos todo lo referente a la transformación de la matriz para poder aplicar el método hclust
+
+```{r}
+enum_h = dataset_h
+
+enum_h$V4 = NULL
+
+enum_h = as.matrix(enum_h)
+
+distancia_h = dist(enum_h)
+```
+
+Luego de intentar con varios métodos distintos, se observó que ninguno pudo dar con la solución correcta, de manera que se desmuestra que no funciona con el siguiente ploteo.
+
+```{r}
+
+cluster_h = hclust(distancia_h)
+
+plot(cluster_h)
+
+corte_h = cutree(cluster_h, k=4)
+
+plot(dataset_h$V1, dataset_h$V2, col= corte_h)
+
+plot(dataset_h$V1, dataset_h$V3, col= corte_h)
+```
+
+Finalmente se llegó a la conclusión de que con este tipo de datasets con 3 dimensiones aún no tenemos las herramientas para poder encontrar los clusters adecuados.
+
+**Dataset s.csv**
+
+Instanciamos el dataset y procemos el estudio previo
+
+```{r}
+dataset_s = read.csv(file = 's.csv', header = F)
+
+range(dataset_s$V4)
+
+plot(dataset_s)
+```
+
+Observamos que este dataset también está en 3 dimensiones y de igual manera también necesita una transformación en su última columna. Procedemos a realizarlo.
+
+```{r}
+
+dataset_s$V4[dataset_s$V4 > 2] = 4
+
+dataset_s$V4[dataset_s$V4 > 0 & dataset_s$V4 < 2] = 3
+
+dataset_s$V4[dataset_s$V4 > -2 & dataset_s$V4 < 0] = 2
+
+dataset_s$V4[dataset_s$V4 < -2] = 1
+```
+
+Revisamos que se haya realizado de manera correcta
+
+```{r}
+unique(dataset_s$V4)
+```
+
+Ploteamos desde diferentes perspectivas y luego realizamos un ploteo en 3D. 
+```{r}
+plot(dataset_s$V1, dataset_s$V2, col= dataset_s$V4)
+
+plot(dataset_s$V1, dataset_s$V3, col= dataset_s$V4)
+
+plot(dataset_s$V2, dataset_s$V3, col= dataset_s$V4)
+
+scatterplot3d(dataset_s$V1, dataset_s$V2, dataset_s$V3, highlight.3d = TRUE)
+```
+
+Observamos que tiene una forma parecida al de una letra S. Procedemos a aplicar el método de k medias
+```{r}
+kmedias_s = kmeans(dataset_s, centers = 4)
+
+plot(x = dataset_s$V1, y = dataset_s$V3, col = kmedias_s$cluster)
+
+plot(x = dataset_s$V1, y = dataset_s$V2, col = kmedias_s$cluster)
+
+points(x = kmedias_s$centers, col = 1:4, pch = 19, cex = 3)
+```
+
+Observamos que este método no logra aglomerar los puntos de manera correcta. Constatamos esto con la matriz de confusión.
+
+```{r}
+table(dataset_s$V4, kmedias_s$cluster)
+```
+
+Si bien algunos sí los clasifica de manera correcta. No es un aproximado muy bueno.
+Pasamos a intentar con el método de hclust.
+Realizamos todo el proprocesamiento previo para poder aplicar el método.
+```{r}
+enum_s = dataset_s
+
+enum_s$V4 = NULL
+
+enum_s = as.matrix(enum_s)
+
+distancia_s = dist(enum_s)
+```
+
+Se probaron todos los métodos del algoritmo pero ninguno pudo dar con la solución, justamente como el dataset anterior, se demuestra su ineficacia más abajo
+
+```{r}
+cluster_s = hclust(distancia_s)
+```
+
+Observamos el cluster. Y realizamos el corte con 4 clases.
+```{r}
+plot(cluster_s)
+
+corte_s = cutree(cluster_s, k=4)
+
+plot(dataset_s$V1, dataset_s$V2, col= corte_s)
+
+plot(dataset_s$V1, dataset_s$V3, col= corte_s)
+
+```
+
+Podemos concluir que los métodos que conocemos no funcionan para datasets de 3 dimensiones. Es posible aglomerar estos puntos de manera correcta, pero no con los algoritmos con los culaes contamos actualmente.
+
+**Dataset help.csv**
+
+Comenzamos cargando el dataset y revisando su columna de clases
+```{r}
+dataset_help = read.csv(file = 'help.csv', header = F)
+
+range(dataset_help$V4)
+```
+
+Observamos que hay que clasificar de nuevo sus clases. Pero también haremos un ploteo en 3 dimensiones.
+
+```{r}
+scatterplot3d(dataset_help$V1, dataset_help$V2, dataset_help$V3, highlight.3d = TRUE)
+```
+
+Observamos que se aglomeran 3 grupos. Dando la casualidad que son las letras SOS, siendo las letras S, el grupo de puntos del dataset s.csv y la letra O siendo el grupo de puntos del dataset h.csv
+
+Respondiendo a las preguntas que se nos hacen con respecto a este dataset:
+
+Cuántos clústers ve en el dataset help: Se denotan 3 clusters. Siendo cada una de las letras S O S un cluster distinto.
+
+Qué pasa al aplicar la regla de asignación de clases en este dataset: Al aplicar las reglas de asociación podemos ver que, efectivamente (usando el método de k medias) cada una de las letras se comporta como un cluster distinto para este set de datos.
+
+Qué solución daría para asignar de manera correcta los valores de las clases y pueda analizar el
+desempeño del algoritmo de clustering de manera correcta: La manera en que se ataco este problema fue la siguience
+
+```{r}
+
+plot(dataset_help$V1, dataset_help$V3)
+
+dataset_help$V5[dataset_help$V1 > 17 & dataset_help$V1 < 42] = 2
+
+dataset_help$V5[dataset_help$V1 < 17] = 1
+
+dataset_help$V5[dataset_help$V1 > 42] = 3
+```
+
+Primeramente, observamos desde la perspectiva del V1 del dataset, y nos damos cuenta que podemos asignarle una clase a cada elemento dependiendo de la letra a la que represente. De esa forma, pasamos a agregarle una columna al dataset que será la verdadera columna clase.
+
+
+
+```{r}
+dataset_help$V4 = NULL
+```
+
+Eliminamos esta columna debido a que la V5 será la nueva columna clase.
+
+```{r}
+unique(dataset_help$V5)
+```
+
+Comprobamos que hayamos definido bien las clases y procedemos a graficar desde distintos angulos el dataset
+
+```{r}
+
+plot(dataset_help$V1, dataset_help$V2, col= dataset_help$V5)
+
+plot(dataset_help$V1, dataset_help$V3, col= dataset_help$V5)
+
+plot(dataset_help$V2, dataset_help$V3, col= dataset_help$V5)
+```
+
+Luego de observar que, efectivamente cada letra representa un cluster distinto, procedemos a aplicar el algoritmo de k medias
+
+```{r}
+kmedias_help = kmeans(x = dataset_help, centers = 3)
+
+plot(dataset_help$V1, dataset_help$V3, col= kmedias_help$cluster)
+```
+
+Se observa que cada letra corresponde a un cluster y que además se adapta perfectamente a las clases que fueron asignadas a cada una mediante el proceso anterior. Procedemos a corroborar esta información con la matriz de confusión.
+
+
+```{r}
+table(dataset_help$V5, kmedias_help$cluster)
+```
+
+**Dataset good_luck.csv**
+
+Cargamos el dataset y hacemos un plot en desde varias perspectivas.
+
+```{r}
+dataset_luck = read.csv(file = 'good_luck.csv', header = F)
+
+plot(dataset_luck$V1, dataset_luck$V2, col = dataset_luck$V11)
+
+plot(dataset_luck$V1, dataset_luck$V3, col = dataset_luck$V11)
+
+plot(dataset_luck$V1, dataset_luck$V4, col = dataset_luck$V11)
+
+```
+
+Podemos ver que tiene demasiadas dimensiones para obtener una visión clara de lo que representa este dataset, sin embargo, también haremos un ploteo en 3 dimensiones
+
+```{r}
+scatterplot3d(dataset_luck$V1, dataset_luck$V2, dataset_luck$V3, highlight.3d = TRUE)
+```
+
+Con un ploteo en 3 dimensiones tampoco podríamos discernir entre si hay ciertos clusters visibles o no. De igual forma, aplicaremos el método de k medias.
+```{r}
+
+kmedias_goodluck = kmeans(x = dataset_luck, centers = 2)
+
+plot(dataset_luck$V1, dataset_luck$V2, col = kmedias_goodluck$cluster)
+```
+
+Podemos observar que no se aglomera correctamente ningún cluster. Pero esto es debido a que el dataset tiene demasiadas dimensiones para que este algoritmo pueda funcionar de manera adecuada.
+
+Se llega a la conclusión que por los momentos no poseemos las herramientas adecuadas para poder encontrar cluster en cierta cantidades de set de datos en varias dimensiones. También podemos decir que el algoritmo de k medias funciona muy bien para sets de datos que tienen formas cilindricas o redondas mientras que el h clust también lo hace muy bien, siendo el método 'single' el óptimo para datasets de formas alargadas como el que se estudió en la parte de moon.csv.
+
+```
